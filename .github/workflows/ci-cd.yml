@@ -41,14 +41,22 @@ jobs:
             -Dsonar.sources=./src
             -Dsonar.host.url=https://sonarcloud.io
 
-      # 6. Login no Docker Hub
+      # 6. Gerar versão automática baseada no número do run
+      - name: Generate version tag
+        id: versioning
+        run: |
+          VERSION="1.0.${{ github.run_number }}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      # 7. Login no Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 7. Build e push da imagem Docker
+      # 8. Build e push da imagem Docker com versionamento
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -56,4 +64,4 @@ jobs:
           push: true
           tags: |
             vanessacapuano/api-sast-p2:latest
-            vanessacapuano/api-sast-p2:${{ github.run_number }}
+            vanessacapuano/api-sast-p2:${{ steps.versioning.outputs.VERSION }}
