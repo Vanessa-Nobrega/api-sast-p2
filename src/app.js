@@ -1,7 +1,7 @@
 // src/app.js - Aplicação Express com vulnerabilidades intencionais para SAST
-
+require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql');
+const { Client } = require('pg');
 const crypto = require('crypto');
 const { exec } = require('child_process');
 const fs = require('fs');
@@ -78,13 +78,21 @@ const DB_PASSWORD = 'SuperSecret123!';
 const API_KEY = 'sk_live_51234567890abcdef';
 const JWT_SECRET = 'my-secret-key';
 
-// VULNERABILIDADE 2: Conexão MySQL sem validação
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: DB_PASSWORD,
-  database: 'vulnerable_db'
+// VULNERABILIDADE 2: Conexão de banco sem validação (agora com Postgres)
+const db = new Client({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false // exigido pelo Postgres do Render
+  }
 });
+
+db.connect()
+  .then(() => console.log('Connected to Postgres'))
+  .catch((err) => console.error('Postgres connection error:', err));
 
 // VULNERABILIDADE 3: SQL Injection
 /**
@@ -117,9 +125,9 @@ app.get('/users/:id', (req, res) => {
   const userId = req.params.id;
   const query = `SELECT * FROM users WHERE id = ${userId}`;
   
-  db.query(query, (err, results) => {
+  db.query(query, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
+    res.json(result.rows || []);
   });
 });
 
@@ -144,9 +152,9 @@ app.get('/users/:id', (req, res) => {
 app.get('/users', (req, res) => {
   const query = `SELECT * FROM users`;
   
-  db.query(query, (err, results) => {
+  db.query(query, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
+    res.json(result.rows || []);
   });
 });
 
@@ -315,10 +323,11 @@ app.post('/login', (req, res) => {
   
   const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
   
-  db.query(query, (err, results) => {
+  db.query(query, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     
-    if (results.length > 0) {
+    const rows = result.rows || [];
+    if (rows.length > 0) {
       res.json({ success: true, token: 'fake-jwt-token' });
     } else {
       res.status(401).json({ success: false });
@@ -596,12 +605,15 @@ app.post('/upload', (req, res) => {
  *         description: Erro ao criar usuário
  */
 app.post('/users', (req, res) => {
+  // Mantendo a vulnerabilidade conceitual; esta query não é compatível com Postgres,
+  // mas o objetivo aqui é SAST, não corretude de SQL.
   const newUser = req.body;
-  const query = `INSERT INTO users SET ?`;
+  const query = `INSERT INTO users (username, password, isadmin, role)
+                 VALUES ('${newUser.username}', '${newUser.password}', ${newUser.isAdmin}, '${newUser.role}')`;
   
-  db.query(query, newUser, (err, result) => {
+  db.query(query, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: result.insertId, ...newUser });
+    res.json({ success: true });
   });
 });
 
