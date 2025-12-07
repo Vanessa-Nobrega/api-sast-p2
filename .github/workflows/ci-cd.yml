@@ -36,7 +36,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=vanessa-nobrega_api-sast-p2
+            -Dsonar.projectKey=Vanessa-Nobrega_api-sast-p2
             -Dsonar.organization=vanessa-nobrega
             -Dsonar.sources=./src
             -Dsonar.host.url=https://sonarcloud.io
